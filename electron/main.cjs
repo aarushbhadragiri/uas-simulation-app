@@ -21,8 +21,12 @@ autoUpdater.logger = require('electron-log');
 autoUpdater.logger.transports.file.level = 'info';
 
 // Check for updates silently (don't prompt if no update)
-autoUpdater.autoDownload = false;
+autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
+autoUpdater.forceDevUpdateConfig = true;
+
+// Allow updating unsigned apps on macOS
+process.env.ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES = 'true';
 
 // Auto-updater events
 autoUpdater.on('checking-for-update', () => {
@@ -34,14 +38,9 @@ autoUpdater.on('update-available', (info) => {
   dialog.showMessageBox(mainWindow, {
     type: 'info',
     title: 'Update Available',
-    message: `A new version (${info.version}) is available!`,
-    detail: 'Would you like to download it now?',
-    buttons: ['Download', 'Later'],
-    defaultId: 0,
-  }).then((result) => {
-    if (result.response === 0) {
-      autoUpdater.downloadUpdate();
-    }
+    message: `Downloading update v${info.version}...`,
+    detail: 'The update will download in the background. You\'ll be prompted to restart when it\'s ready.',
+    buttons: ['OK'],
   });
 });
 
@@ -70,7 +69,7 @@ autoUpdater.on('update-downloaded', (info) => {
     defaultId: 0,
   }).then((result) => {
     if (result.response === 0) {
-      autoUpdater.quitAndInstall();
+      autoUpdater.quitAndInstall(false, true);
     }
   });
 });
