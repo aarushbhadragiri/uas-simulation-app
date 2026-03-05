@@ -1,6 +1,6 @@
 {
   "name": "uas-simulation-app",
-  "version": "3.2.3",
+  "version": "3.2.4",
   "description": "UAS Flight Path Simulation - AP Research Study by Aarush Bhadragiri",
   "author": "Aarush Bhadragiri",
   "type": "module",

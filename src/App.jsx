@@ -1476,16 +1476,22 @@ export default function App() {
     }
 
     // Use Electron save dialog if available, otherwise browser fallback
-    if (window.electronAPI?.saveFile) {
-      await window.electronAPI.saveFile({ content, defaultName, filters });
-    } else {
-      const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = defaultName;
-      link.click();
-      URL.revokeObjectURL(url);
+    try {
+      if (window.electronAPI?.saveFile) {
+        const result = await window.electronAPI.saveFile({ content, defaultName, filters });
+        console.log('Save result:', result);
+      } else {
+        const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = defaultName;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('Download failed: ' + err.message);
     }
   };
 
