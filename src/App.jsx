@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 
 import { Switch } from '@/components/ui/switch';
@@ -28,7 +29,7 @@ import { ScrollProgress } from '@/components/scroll-progress';
 import { FadeIn, StaggerChildren, ScaleOnHover } from '@/components/ui/animated';
 
 // Lucide icons
-import { BarChart3, Database, Map, Cloud, Shield, Layers, Plane, DollarSign, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Info, Sun, Moon, Play, Settings, Zap, Wind, Battery, Package, Gauge, Clock, AlertCircle, Home } from 'lucide-react';
+import { BarChart3, Database, Map, Cloud, Shield, Layers, Plane, DollarSign, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, Info, Sun, Moon, Play, Settings, Zap, Wind, Battery, Package, Gauge, Clock, AlertCircle, Home, Monitor, Download, FileJson, FileSpreadsheet } from 'lucide-react';
 
 // Hummingbird Logo Component
 function HummingbirdLogo({ className = "w-8 h-8" }) {
@@ -1023,17 +1024,57 @@ export default function App() {
   const [selectedFlight, setSelectedFlight] = useState(null);
   const [filters, setFilters] = useState({});
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Check localStorage first, default to dark mode
+  // Theme mode: 'dark', 'light', or 'system'
+  const [themeMode, setThemeMode] = useState(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('uas-theme');
-      return saved ? saved === 'dark' : true;
+      const saved = localStorage.getItem('uas-theme-mode');
+      return saved || 'system';
+    }
+    return 'system';
+  });
+
+  // Actual dark mode state (resolved from themeMode)
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('uas-theme-mode');
+      if (savedMode === 'dark') return true;
+      if (savedMode === 'light') return false;
+      // System preference
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
     return true;
   });
 
   // Landing page state
   const [showLanding, setShowLanding] = useState(true);
+
+  // Listen for system theme changes when in 'system' mode
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+    const handleSystemThemeChange = (e) => {
+      if (themeMode === 'system') {
+        setIsDarkMode(e.matches);
+      }
+    };
+
+    // Set initial value based on themeMode
+    if (themeMode === 'system') {
+      setIsDarkMode(mediaQuery.matches);
+    } else {
+      setIsDarkMode(themeMode === 'dark');
+    }
+
+    // Listen for changes
+    mediaQuery.addEventListener('change', handleSystemThemeChange);
+
+    // Save theme mode preference
+    localStorage.setItem('uas-theme-mode', themeMode);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleSystemThemeChange);
+    };
+  }, [themeMode]);
 
   // Apply theme class to document
   useEffect(() => {
@@ -1042,12 +1083,19 @@ export default function App() {
     } else {
       document.documentElement.classList.remove('dark');
     }
-    localStorage.setItem('uas-theme', isDarkMode ? 'dark' : 'light');
   }, [isDarkMode]);
 
   const handleFilterChange = (key, value) => setFilters(prev => ({ ...prev, [key]: value }));
   const handleSearchChange = (value) => setSearchQuery(value);
-  const toggleTheme = () => setIsDarkMode(prev => !prev);
+
+  // Cycle through theme modes: system -> light -> dark -> system
+  const cycleThemeMode = () => {
+    setThemeMode(prev => {
+      if (prev === 'system') return 'light';
+      if (prev === 'light') return 'dark';
+      return 'system';
+    });
+  };
 
   // Simulation state with multi-planning mode support
   const [simConfig, setSimConfig] = useState({
@@ -1071,11 +1119,41 @@ export default function App() {
   });
   const [simResults, setSimResults] = useState(null);
   const [isSimulating, setIsSimulating] = useState(false);
-  // Accumulated trials across all simulation runs
-  const [accumulatedTrials, setAccumulatedTrials] = useState([]);
+  // Accumulated trials across all simulation runs - persisted to localStorage
+  const [accumulatedTrials, setAccumulatedTrials] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('uas-simulation-trials');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.warn('Failed to parse saved simulation trials');
+        }
+      }
+    }
+    return [];
+  });
   const [selectedSimTrial, setSelectedSimTrial] = useState(null);
   const [simTrialFilters, setSimTrialFilters] = useState({});
-  const [nextTrialId, setNextTrialId] = useState(1);
+  const [nextTrialId, setNextTrialId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('uas-simulation-trials');
+      if (saved) {
+        try {
+          const trials = JSON.parse(saved);
+          return trials.length > 0 ? Math.max(...trials.map(t => t.id || t.trialId || 0)) + 1 : 1;
+        } catch (e) {
+          console.warn('Failed to parse saved simulation trials');
+        }
+      }
+    }
+    return 1;
+  });
+
+  // Persist accumulated trials to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem('uas-simulation-trials', JSON.stringify(accumulatedTrials));
+  }, [accumulatedTrials]);
 
   const updateSimConfig = (key, value) => {
     setSimConfig(prev => ({ ...prev, [key]: value }));
@@ -1320,6 +1398,103 @@ export default function App() {
     setNextTrialId(1);
   };
 
+  // Download trials data
+  const downloadTrials = (format) => {
+    if (accumulatedTrials.length === 0) return;
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+
+    if (format === 'csv') {
+      // CSV export - flat trial data
+      const headers = [
+        'Trial ID', 'Run ID', 'City', 'Drone Model', 'Planning Mode', 'Weather Condition',
+        'Mission Outcome', 'Origin Lat', 'Origin Lng', 'Destination Lat', 'Destination Lng',
+        'Straight Line Distance (m)', 'Total Distance (m)', 'Total Time (s)',
+        'Total Energy (Wh)', 'Path Efficiency (%)', 'Reroutes', 'Privacy Violations',
+        'Energy Cost', 'Time Cost', 'Risk Cost', 'Privacy Cost', 'Total Weighted Cost',
+        'Wind Speed (m/s)', 'Precipitation (mm)', 'Temperature (°C)', 'Visibility (km)',
+        'Environment', 'Season', 'Data Freshness'
+      ];
+      const rows = accumulatedTrials.map(t => [
+        t.trialId || t.id, t.runId, t.city, t.droneModel, t.planningMode, t.weatherCondition,
+        t.missionOutcome, t.originLat?.toFixed(6), t.originLng?.toFixed(6),
+        t.destinationLat?.toFixed(6), t.destinationLng?.toFixed(6),
+        t.straightLineDistance, t.totalDistance, t.totalTime,
+        t.totalEnergy?.toFixed(4), t.pathEfficiency?.toFixed(4), t.reroutes, t.privacyViolations,
+        t.energyCost?.toFixed(4), t.timeCost?.toFixed(4), t.riskCost?.toFixed(4),
+        t.privacyCost?.toFixed(4), t.totalWeightedCost?.toFixed(4),
+        t.windSpeed?.toFixed(2), t.precipitation?.toFixed(2),
+        t.temperature?.toFixed(1), t.visibility?.toFixed(1),
+        t.environment, t.season, t.freshness
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `uas-trials-${timestamp}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } else if (format === 'json') {
+      // JSON export - full data with statistics
+      const calculateStats = (trials) => {
+        if (trials.length === 0) return null;
+        const successCount = trials.filter(t => t.missionOutcome === 'success').length;
+        const reroutedCount = trials.filter(t => t.missionOutcome === 'rerouted').length;
+        const delayedCount = trials.filter(t => t.missionOutcome === 'delayed').length;
+        const abortedCount = trials.filter(t => t.missionOutcome === 'aborted').length;
+        return {
+          totalTrials: trials.length,
+          outcomes: { success: successCount, rerouted: reroutedCount, delayed: delayedCount, aborted: abortedCount },
+          successRate: ((successCount / trials.length) * 100).toFixed(2),
+          abortRate: ((abortedCount / trials.length) * 100).toFixed(2),
+          avgPathEfficiency: (trials.reduce((s, t) => s + t.pathEfficiency, 0) / trials.length).toFixed(4),
+          avgEnergy: (trials.reduce((s, t) => s + t.totalEnergy, 0) / trials.length).toFixed(4),
+          avgFlightTime: (trials.reduce((s, t) => s + t.totalTime, 0) / trials.length).toFixed(2),
+          avgWeightedCost: (trials.reduce((s, t) => s + t.totalWeightedCost, 0) / trials.length).toFixed(4),
+          avgReroutes: (trials.reduce((s, t) => s + t.reroutes, 0) / trials.length).toFixed(4),
+          avgPrivacyViolations: (trials.reduce((s, t) => s + t.privacyViolations, 0) / trials.length).toFixed(4),
+          avgDistance: (trials.reduce((s, t) => s + t.totalDistance, 0) / trials.length).toFixed(2),
+        };
+      };
+
+      // Build per-mode breakdown
+      const modeBreakdown = {};
+      const allModes = [...new Set(accumulatedTrials.map(t => t.planningMode))];
+      allModes.forEach(mode => {
+        const modeTrials = accumulatedTrials.filter(t => t.planningMode === mode);
+        modeBreakdown[mode] = calculateStats(modeTrials);
+      });
+
+      // Build per-city breakdown
+      const cityBreakdown = {};
+      const allCities = [...new Set(accumulatedTrials.map(t => t.city))];
+      allCities.forEach(city => {
+        const cityTrials = accumulatedTrials.filter(t => t.city === city);
+        cityBreakdown[city] = calculateStats(cityTrials);
+      });
+
+      const exportData = {
+        exportDate: new Date().toISOString(),
+        study: 'AP Research - UAS Routing Efficiency Analysis',
+        author: 'Aarush Bhadragiri',
+        summary: calculateStats(accumulatedTrials),
+        breakdownByPlanningMode: modeBreakdown,
+        breakdownByCity: cityBreakdown,
+        trials: accumulatedTrials
+      };
+
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `uas-trials-${timestamp}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
   const tabs = [
     { id: 'overview', label: 'Overview', icon: BarChart3 },
     { id: 'data', label: 'Data Table', icon: Database },
@@ -1365,16 +1540,33 @@ export default function App() {
                   <p className="text-muted-foreground mt-2">Multi-City Analysis | Environmental, Privacy & GIS-Enhanced Planning</p>
                 </div>
               </div>
-              {/* Theme Toggle */}
-              <div className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                <Sun className={`h-4 w-4 transition-colors ${isDarkMode ? 'text-muted-foreground' : 'text-amber-500'}`} />
-                <Switch
-                  checked={isDarkMode}
-                  onCheckedChange={toggleTheme}
-                  aria-label="Toggle dark mode"
-                />
-                <Moon className={`h-4 w-4 transition-colors ${isDarkMode ? 'text-blue-400' : 'text-muted-foreground'}`} />
-              </div>
+              {/* Theme Toggle - cycles through system/light/dark */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={cycleThemeMode}
+                className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 hover:bg-muted"
+                title={`Theme: ${themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}`}
+              >
+                {themeMode === 'system' && (
+                  <>
+                    <Monitor className="h-4 w-4" />
+                    <span className="text-xs font-medium">System</span>
+                  </>
+                )}
+                {themeMode === 'light' && (
+                  <>
+                    <Sun className="h-4 w-4 text-amber-500" />
+                    <span className="text-xs font-medium">Light</span>
+                  </>
+                )}
+                {themeMode === 'dark' && (
+                  <>
+                    <Moon className="h-4 w-4 text-blue-400" />
+                    <span className="text-xs font-medium">Dark</span>
+                  </>
+                )}
+              </Button>
             </div>
             <div className="flex flex-wrap gap-2 mt-4">
               <Badge variant="info" className="animate-fade-in stagger-1">5,400 Scenarios</Badge>
@@ -1831,14 +2023,41 @@ export default function App() {
                       )}
                     </Button>
                     {accumulatedTrials.length > 0 && (
-                      <Button
-                        onClick={clearTrials}
-                        variant="outline"
-                        className="w-full"
-                        size="sm"
-                      >
-                        Clear All Trials ({accumulatedTrials.length})
-                      </Button>
+                      <div className="flex gap-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="flex-1"
+                              size="sm"
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Download Trials ({accumulatedTrials.length})
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="center" className="w-56">
+                            <DropdownMenuLabel>Export Format</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => downloadTrials('csv')}>
+                              <FileSpreadsheet className="h-4 w-4 mr-2" />
+                              CSV (Trial Data)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => downloadTrials('json')}>
+                              <FileJson className="h-4 w-4 mr-2" />
+                              JSON (Data + Statistics)
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <Button
+                          onClick={clearTrials}
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          title="Clear all trials"
+                        >
+                          Clear All
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </CardContent>

@@ -19,34 +19,58 @@ function HummingbirdLogo({ className = "w-12 h-12" }) {
   );
 }
 
-export function LandingPage({ onEnter }) {
-  useEffect(() => {
-    document.documentElement.classList.add('dark');
-  }, []);
-
+export function LandingPage({ onEnter, isDarkMode = true }) {
   return (
-    <div className="min-h-screen w-full relative bg-stone-950">
-      {/* Shader Ripple Background - Official @aliimam component */}
+    <div className={`min-h-screen w-full relative ${isDarkMode ? 'bg-stone-950' : 'bg-stone-100'}`}>
+      {/* Shader Ripple Background - Different colors for light/dark mode */}
       <div className="absolute inset-0 w-full h-full">
-        <ShaderRipple
-          color1="#f59e0b"
-          color2="#4f46e5"
-          color3="#c2410c"
-          backgroundColor="#0c0a09"
-          rotation={90}
-          mod={0.5}
-          colorLayers={9}
-          lineWidth={0.0005}
-          className="w-full h-full"
-        />
+        {isDarkMode ? (
+          <ShaderRipple
+            color1="#f59e0b"
+            color2="#4f46e5"
+            color3="#c2410c"
+            backgroundColor="#0c0a09"
+            rotation={90}
+            mod={0.5}
+            colorLayers={9}
+            lineWidth={0.0005}
+            className="w-full h-full"
+          />
+        ) : (
+          <ShaderRipple
+            color1="#fbbf24"
+            color2="#818cf8"
+            color3="#fb923c"
+            backgroundColor="#f5f5f4"
+            rotation={90}
+            mod={0.5}
+            colorLayers={9}
+            lineWidth={0.0005}
+            className="w-full h-full"
+          />
+        )}
       </div>
 
       {/* Content */}
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4">
         <FadeIn delay={200} duration={800}>
-          <BlurCard className="max-w-2xl w-full p-8 sm:p-12 text-center" blur="xl">
+          <BlurCard
+            className={`max-w-2xl w-full p-8 sm:p-12 text-center ${
+              isDarkMode
+                ? ''
+                : 'bg-white/70 border-stone-300/50'
+            }`}
+            blur="xl"
+          >
             <FadeIn delay={400}>
-              <Badge variant="outline" className="mb-6 px-4 py-1.5 text-sm font-medium border-stone-600">
+              <Badge
+                variant="outline"
+                className={`mb-6 px-4 py-1.5 text-sm font-medium ${
+                  isDarkMode
+                    ? 'border-stone-600'
+                    : 'border-stone-400 bg-white/50'
+                }`}
+              >
                 <HummingbirdLogo className="w-4 h-4 mr-2" />
                 UAS Flight Simulation Study
               </Badge>
@@ -54,36 +78,42 @@ export function LandingPage({ onEnter }) {
 
             <div className="mb-6">
               <FadeIn delay={500} direction="none">
-                <h1 className="text-5xl sm:text-7xl font-black tracking-tight text-foreground mb-2">
+                <h1 className={`text-5xl sm:text-7xl font-black tracking-tight mb-2 ${
+                  isDarkMode ? 'text-foreground' : 'text-stone-900'
+                }`}>
                   AP Research
                 </h1>
               </FadeIn>
               <FadeIn delay={700} direction="none">
-                <p className="text-xl sm:text-2xl font-light text-muted-foreground tracking-wide">
+                <p className={`text-xl sm:text-2xl font-light tracking-wide ${
+                  isDarkMode ? 'text-muted-foreground' : 'text-stone-600'
+                }`}>
                   UAS Routing Efficiency Analysis
                 </p>
               </FadeIn>
             </div>
 
             <FadeIn delay={900}>
-              <p className="text-lg text-stone-400 mb-8">
-                by <span className="font-semibold text-foreground">Aarush Bhadragiri</span>
+              <p className={`text-lg mb-8 ${isDarkMode ? 'text-stone-400' : 'text-stone-500'}`}>
+                by <span className={`font-semibold ${isDarkMode ? 'text-foreground' : 'text-stone-800'}`}>Aarush Bhadragiri</span>
               </p>
             </FadeIn>
 
             <FadeIn delay={1100}>
-              <div className="grid grid-cols-3 gap-4 mb-8 py-6 border-y border-border/50">
+              <div className={`grid grid-cols-3 gap-4 mb-8 py-6 border-y ${
+                isDarkMode ? 'border-border/50' : 'border-stone-300/50'
+              }`}>
                 <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-foreground">5,400</div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Simulations</div>
+                  <div className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? 'text-foreground' : 'text-stone-900'}`}>5,400</div>
+                  <div className={`text-xs uppercase tracking-wider ${isDarkMode ? 'text-muted-foreground' : 'text-stone-500'}`}>Simulations</div>
                 </div>
-                <div className="text-center border-x border-border/50">
-                  <div className="text-2xl sm:text-3xl font-bold text-foreground">5</div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Cities</div>
+                <div className={`text-center border-x ${isDarkMode ? 'border-border/50' : 'border-stone-300/50'}`}>
+                  <div className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? 'text-foreground' : 'text-stone-900'}`}>5</div>
+                  <div className={`text-xs uppercase tracking-wider ${isDarkMode ? 'text-muted-foreground' : 'text-stone-500'}`}>Cities</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl sm:text-3xl font-bold text-foreground">6</div>
-                  <div className="text-xs text-muted-foreground uppercase tracking-wider">Drones</div>
+                  <div className={`text-2xl sm:text-3xl font-bold ${isDarkMode ? 'text-foreground' : 'text-stone-900'}`}>6</div>
+                  <div className={`text-xs uppercase tracking-wider ${isDarkMode ? 'text-muted-foreground' : 'text-stone-500'}`}>Drones</div>
                 </div>
               </div>
             </FadeIn>
@@ -92,7 +122,11 @@ export function LandingPage({ onEnter }) {
               <Button
                 onClick={onEnter}
                 size="lg"
-                className="group h-14 px-8 text-lg font-semibold transition-all duration-300 hover:scale-105"
+                className={`group h-14 px-8 text-lg font-semibold transition-all duration-300 hover:scale-105 ${
+                  isDarkMode
+                    ? ''
+                    : 'bg-stone-900 hover:bg-stone-800 text-white'
+                }`}
               >
                 Enter Application
                 <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
@@ -111,7 +145,11 @@ export function LandingPage({ onEnter }) {
             ].map((feature, i) => (
               <div
                 key={i}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-stone-900/40 backdrop-blur-sm border border-stone-700/30 text-sm text-stone-400"
+                className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-sm text-sm ${
+                  isDarkMode
+                    ? 'bg-stone-900/40 border border-stone-700/30 text-stone-400'
+                    : 'bg-white/60 border border-stone-300/50 text-stone-600'
+                }`}
               >
                 <feature.icon className="h-4 w-4" />
                 {feature.label}
@@ -121,7 +159,7 @@ export function LandingPage({ onEnter }) {
         </FadeIn>
 
         <FadeIn delay={1700} className="absolute bottom-8">
-          <p className="text-xs text-stone-600">
+          <p className={`text-xs ${isDarkMode ? 'text-stone-600' : 'text-stone-400'}`}>
             Dallas • New York • San Francisco • Chicago • Los Angeles
           </p>
         </FadeIn>
