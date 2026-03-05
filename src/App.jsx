@@ -1399,24 +1399,24 @@ export default function App() {
   };
 
   // Download trials data
-  const downloadTrials = (format) => {
+  const downloadTrials = async (format) => {
     if (accumulatedTrials.length === 0) return;
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    let content, defaultName, filters;
 
     if (format === 'csv') {
-      // CSV export - flat trial data
       const headers = [
         'Trial ID', 'Run ID', 'City', 'Drone Model', 'Planning Mode', 'Weather Condition',
         'Mission Outcome', 'Origin Lat', 'Origin Lng', 'Destination Lat', 'Destination Lng',
         'Straight Line Distance (m)', 'Total Distance (m)', 'Total Time (s)',
         'Total Energy (Wh)', 'Path Efficiency (%)', 'Reroutes', 'Privacy Violations',
         'Energy Cost', 'Time Cost', 'Risk Cost', 'Privacy Cost', 'Total Weighted Cost',
-        'Wind Speed (m/s)', 'Precipitation (mm)', 'Temperature (°C)', 'Visibility (km)',
+        'Wind Speed (m/s)', 'Precipitation (mm)', 'Temperature (C)', 'Visibility (km)',
         'Environment', 'Season', 'Data Freshness'
       ];
       const rows = accumulatedTrials.map(t => [
-        t.trialId || t.id, t.runId, t.city, t.droneModel, t.planningMode, t.weatherCondition,
+        t.trialId || t.id, t.runId, `"${t.city}"`, `"${t.droneModel}"`, t.planningMode, `"${t.weatherCondition}"`,
         t.missionOutcome, t.originLat?.toFixed(6), t.originLng?.toFixed(6),
         t.destinationLat?.toFixed(6), t.destinationLng?.toFixed(6),
         t.straightLineDistance, t.totalDistance, t.totalTime,
@@ -1425,19 +1425,12 @@ export default function App() {
         t.privacyCost?.toFixed(4), t.totalWeightedCost?.toFixed(4),
         t.windSpeed?.toFixed(2), t.precipitation?.toFixed(2),
         t.temperature?.toFixed(1), t.visibility?.toFixed(1),
-        t.environment, t.season, t.freshness
+        t.environment, t.season, `"${t.freshness}"`
       ]);
-
-      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `uas-trials-${timestamp}.csv`;
-      link.click();
-      URL.revokeObjectURL(url);
-    } else if (format === 'json') {
-      // JSON export - full data with statistics
+      content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      defaultName = `uas-trials-${timestamp}.csv`;
+      filters = [{ name: 'CSV Files', extensions: ['csv'] }];
+    } else {
       const calculateStats = (trials) => {
         if (trials.length === 0) return null;
         const successCount = trials.filter(t => t.missionOutcome === 'success').length;
@@ -1459,20 +1452,13 @@ export default function App() {
         };
       };
 
-      // Build per-mode breakdown
       const modeBreakdown = {};
-      const allModes = [...new Set(accumulatedTrials.map(t => t.planningMode))];
-      allModes.forEach(mode => {
-        const modeTrials = accumulatedTrials.filter(t => t.planningMode === mode);
-        modeBreakdown[mode] = calculateStats(modeTrials);
+      [...new Set(accumulatedTrials.map(t => t.planningMode))].forEach(mode => {
+        modeBreakdown[mode] = calculateStats(accumulatedTrials.filter(t => t.planningMode === mode));
       });
-
-      // Build per-city breakdown
       const cityBreakdown = {};
-      const allCities = [...new Set(accumulatedTrials.map(t => t.city))];
-      allCities.forEach(city => {
-        const cityTrials = accumulatedTrials.filter(t => t.city === city);
-        cityBreakdown[city] = calculateStats(cityTrials);
+      [...new Set(accumulatedTrials.map(t => t.city))].forEach(city => {
+        cityBreakdown[city] = calculateStats(accumulatedTrials.filter(t => t.city === city));
       });
 
       const exportData = {
@@ -1484,12 +1470,20 @@ export default function App() {
         breakdownByCity: cityBreakdown,
         trials: accumulatedTrials
       };
+      content = JSON.stringify(exportData, null, 2);
+      defaultName = `uas-trials-${timestamp}.json`;
+      filters = [{ name: 'JSON Files', extensions: ['json'] }];
+    }
 
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    // Use Electron save dialog if available, otherwise browser fallback
+    if (window.electronAPI?.saveFile) {
+      await window.electronAPI.saveFile({ content, defaultName, filters });
+    } else {
+      const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `uas-trials-${timestamp}.json`;
+      link.download = defaultName;
       link.click();
       URL.revokeObjectURL(url);
     }

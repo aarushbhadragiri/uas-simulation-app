@@ -1,5 +1,6 @@
-const { app, BrowserWindow, dialog } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
 // Enable WebGL and hardware acceleration
@@ -94,6 +95,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       webgl: true,
+      preload: path.join(__dirname, 'preload.cjs'),
     },
     backgroundColor: '#0c0a09',
     titleBarStyle: 'hiddenInset',
@@ -118,6 +120,22 @@ function createWindow() {
   // Uncomment to debug:
   // mainWindow.webContents.openDevTools();
 }
+
+// ============================================
+// IPC HANDLERS
+// ============================================
+
+ipcMain.handle('save-file', async (event, { content, defaultName, filters }) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: defaultName,
+    filters: filters || [{ name: 'All Files', extensions: ['*'] }],
+  });
+  if (!result.canceled && result.filePath) {
+    fs.writeFileSync(result.filePath, content, 'utf-8');
+    return { success: true, filePath: result.filePath };
+  }
+  return { success: false };
+});
 
 app.whenReady().then(() => {
   createWindow();
