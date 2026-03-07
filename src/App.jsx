@@ -1475,23 +1475,59 @@ export default function App() {
       filters = [{ name: 'JSON Files', extensions: ['json'] }];
     }
 
-    // Use Electron save dialog if available, otherwise browser fallback
+    // Multi-fallback download strategy
+    const mimeType = format === 'csv' ? 'text/csv' : 'application/json';
+
+    // Approach 1: Electron IPC save dialog
     try {
-      if (window.electronAPI?.saveFile) {
+      if (window.electronAPI && typeof window.electronAPI.saveFile === 'function') {
         const result = await window.electronAPI.saveFile({ content, defaultName, filters });
-        console.log('Save result:', result);
-      } else {
-        const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = defaultName;
-        link.click();
-        URL.revokeObjectURL(url);
+        if (result && result.success) {
+          console.log('Saved via Electron dialog:', result.filePath);
+          return;
+        }
+        console.warn('Electron save was cancelled or returned no success');
       }
-    } catch (err) {
-      console.error('Download error:', err);
-      alert('Download failed: ' + err.message);
+    } catch (e) {
+      console.warn('Electron IPC failed:', e);
+    }
+
+    // Approach 2: Data URI via FileReader (works in Electron webview)
+    try {
+      const blob = new Blob([content], { type: mimeType });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const a = document.createElement('a');
+        a.href = reader.result;
+        a.download = defaultName;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => document.body.removeChild(a), 200);
+      };
+      reader.readAsDataURL(blob);
+      return;
+    } catch (e) {
+      console.warn('Data URI approach failed:', e);
+    }
+
+    // Approach 3: Blob URL fallback
+    try {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = defaultName;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 500);
+    } catch (e) {
+      console.error('All download methods failed:', e);
+      alert('Download failed. Check console for details.');
     }
   };
 
